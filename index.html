@@ -23,6 +23,14 @@
   </div>
 </header>
 
+<section class="card">
+  <h2>Cloud sync</h2>
+  <div id="ain"><div class="add" style="margin-top:0"><input id="em" type="email" placeholder="Email" autocomplete="email" aria-label="Email"><input id="pw" type="password" placeholder="Password (6+ characters)" autocomplete="current-password" aria-label="Password"></div>
+  <div class="bkr"><button class="btn pri" id="si" type="button">Sign in</button><button class="btn" id="su" type="button">Create account</button></div></div>
+  <div id="aout" hidden><div class="bkr" style="margin-top:0"><span id="aemail"></span><button class="btn" id="so" type="button">Sign out</button></div></div>
+  <p class="hint" id="cmsg" style="margin:8px 0 0">Sign in to sync across devices. The app also works offline without an account.</p>
+</section>
+
 <section class="card"><h2>Today's top 3</h2><div id="tt"></div></section>
 
 <section class="card">
@@ -67,6 +75,7 @@
 </section>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

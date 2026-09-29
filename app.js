@@ -1,9 +1,36 @@
 (function(){
 var KEY="habit-tracker-damola-v1",MN=["January","February","March","April","May","June","July","August","September","October","November","December"],DN=["Su","Mo","Tu","We","Th","Fr","Sa"];
-var now=new Date(),S={habits:[],checks:{},well:{},today:{},goals:[],y:now.getFullYear(),m:now.getMonth()};
-function load(){try{var r=localStorage.getItem(KEY);if(r){var d=JSON.parse(r);if(d&&d.habits)S.habits=d.habits,S.checks=d.checks||{},S.well=d.well||{},S.today=d.today||{},S.goals=d.goals||[]}}catch(e){}
+var now=new Date(),S={habits:[],checks:{},well:{},today:{},goals:[],ua:0,y:now.getFullYear(),m:now.getMonth()};
+function load(){try{var r=localStorage.getItem(KEY);if(r){var d=JSON.parse(r);if(d&&d.habits)S.habits=d.habits,S.checks=d.checks||{},S.well=d.well||{},S.today=d.today||{},S.goals=d.goals||[],S.ua=d.ua||0}}catch(e){}
  if(!S.habits.length){S.habits=["Code (2+ hrs)","ReachCare testing","MyTab","Vetted Hands","Masters prep","Workout","Read / learn","Plan the day","Sleep by 11pm"].map(function(n,i){return{id:"h"+i,name:n}});S.goals=[["Masters","Shortlist programs and schools"],["Masters","Check entry requirements and deadlines"],["Masters","Draft statement of purpose"],["Masters","Line up referees"],["Masters","Update CV and project portfolio"],["ReachCare","Close open bugs from testing"],["MyTab","Ship first version"],["Vetted Hands","Ship first version"]].map(function(g,i){return{id:"g"+i,c:g[0],t:g[1],d:false}})}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify({habits:S.habits,checks:S.checks,well:S.well,today:S.today,goals:S.goals}))}catch(e){}}
+function snap(){return{habits:S.habits,checks:S.checks,well:S.well,today:S.today,goals:S.goals,ua:S.ua||0}}
+function save(){S.ua=Date.now();try{localStorage.setItem(KEY,JSON.stringify(snap()))}catch(e){}push()}
+function applyData(d){S.habits=d.habits||[];S.checks=d.checks||{};S.well=d.well||{};S.today=d.today||{};S.goals=d.goals||[];S.ua=d.ua||0;try{localStorage.setItem(KEY,JSON.stringify(snap()))}catch(e){}render()}
+/* ---- Cloud sync (Supabase). The anon key is public by design; row-level security protects data. ---- */
+var SB_URL="https://hbdxnixgkqsxkoksdacf.supabase.co",SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhiZHhuaXhna3FzeGtva3NkYWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5MjQ5NzUsImV4cCI6MjA5MzUwMDk3NX0._JVX3juBF8qe59HDd7hRkUP9c-wGrVFBwy0uvIwns4o",TABLE="habit_tracker_data",sb=null,user=null,pt=null;
+try{if(window.supabase)sb=window.supabase.createClient(SB_URL,SB_KEY)}catch(e){}
+function status(t){var e=document.getElementById("cmsg");if(e)e.textContent=t}
+function ui(){document.getElementById("aout").hidden=!user;document.getElementById("ain").hidden=!!user;document.getElementById("aemail").textContent=user?user.email:""}
+function push(){if(!sb||!user)return;clearTimeout(pt);pt=setTimeout(function(){status("Syncing...");
+ sb.from(TABLE).upsert({user_id:user.id,data:snap(),updated_at:new Date().toISOString()}).then(function(r){status(r.error?"Sync failed. It will retry on your next change.":"Synced")},function(){status("Offline. It will sync on your next change.")})},1200)}
+function pull(){if(!sb||!user)return;
+ sb.from(TABLE).select("data").eq("user_id",user.id).maybeSingle().then(function(r){
+  if(r.error){status("Could not load cloud data.");return}
+  if(r.data&&r.data.data&&(r.data.data.ua||0)>(S.ua||0)){applyData(r.data.data);status("Loaded from cloud")}else push()},function(){status("Offline. Using data on this device.")})}
+function auth(fn){var e=document.getElementById("em").value.trim(),p=document.getElementById("pw").value;
+ if(!e||p.length<6){status("Enter your email and a password of 6+ characters.");return}
+ status("Working...");sb.auth[fn]({email:e,password:p}).then(function(r){
+  if(r.error){status(r.error.message);return}
+  if(fn==="signUp"&&!r.data.session){status("Check your email to confirm your account, then sign in.");return}
+  document.getElementById("pw").value=""})}
+function cloudInit(){
+ if(!sb){status("Cloud sync unavailable right now. Your data stays on this device.");return}
+ document.getElementById("si").onclick=function(){auth("signInWithPassword")};
+ document.getElementById("su").onclick=function(){auth("signUp")};
+ document.getElementById("so").onclick=function(){sb.auth.signOut();status("Signed out. Data stays on this device.")};
+ sb.auth.onAuthStateChange(function(ev,sess){user=sess&&sess.user||null;ui();if(user)setTimeout(pull,0)});
+ document.addEventListener("visibilitychange",function(){if(!document.hidden)pull()});
+}
 function $(i){return document.getElementById(i)}
 function mk(){return S.y+"-"+S.m}
 function days(){return new Date(S.y,S.m+1,0).getDate()}
@@ -117,7 +144,7 @@ function init(){
  $("yr").onchange=function(){S.y=+this.value;render()};
  $("grid").addEventListener("click",function(e){var b=e.target.closest(".cell");if(b)toggle(b.dataset.h,+b.dataset.d)});
  function add(){var v=$("newh").value.trim();if(!v)return;S.habits.push({id:"h"+Date.now(),name:v});$("newh").value="";save();render()}
- $("addb").onclick=add;bind();bind2();$("newh").onkeydown=function(e){if(e.key==="Enter")add()};
+ $("addb").onclick=add;bind();bind2();cloudInit();$("newh").onkeydown=function(e){if(e.key==="Enter")add()};
  $("theme").onclick=function(){var r=document.documentElement,d=r.getAttribute("data-theme");
   var cur=d||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");r.setAttribute("data-theme",cur==="dark"?"light":"dark")};
  render();
